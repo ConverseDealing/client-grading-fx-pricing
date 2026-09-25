@@ -172,8 +172,8 @@
   .matrix-controls{display:flex;gap:20px;align-items:flex-end;margin:14px 0 4px;flex-wrap:wrap;}
   .axis-field label{display:block;font-size:10.5px;color:#5a6b7a;margin-bottom:3px;}
   .axis-field select{
-    padding:6px 10px;border:1px solid var(--lightgray);border-radius:6px;
-    font-family:'Montserrat',sans-serif;font-size:12px;color:var(--dark);background:#fff;
+    padding:5px 8px;border:1px solid var(--lightgray);border-radius:6px;
+    font-family:'Montserrat',sans-serif;font-size:11.5px;color:var(--dark);background:#fff;
   }
 
   table{width:100%;border-collapse:collapse;font-size:12.5px;}
@@ -294,10 +294,7 @@
   </div>
   <div style="display:flex;gap:10px;align-items:center;justify-content:flex-end;">
     <span id="clientCount" class="sub" style="font-size:11.5px;"></span>
-    <div style="display:flex;flex-direction:column;">
-      <label for="periodInput" style="font-size:9px;color:#aab9c3;">Period for this upload</label>
-      <input type="month" id="periodInput" style="padding:5px 7px;border-radius:6px;border:none;font-family:'Montserrat',sans-serif;font-size:11.5px;">
-    </div>
+    <input type="month" id="periodInput" style="display:none;">
     <button class="btn ghost" id="downloadTemplateBtn">Download template</button>
     <button class="btn light" id="clearDataBtn">Clear data</button>
     <button class="btn" id="uploadBtn">Upload client file</button>
@@ -326,9 +323,16 @@
           <button class="view-btn" data-view="matrix">Analytics</button>
           <button class="view-btn" data-view="trends">Trends</button>
         </div>
-        <div class="stat-pills" id="statPills"></div>
       </div>
       <div class="filter-chips" id="filterChips"></div>
+
+      <div id="rangeViewBar" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--lightgray);">
+        <span style="font-size:10.5px;color:#8593a1;font-weight:600;">PERIOD RANGE:</span>
+        <input type="month" id="rangeFromInput" style="padding:5px 8px;border:1px solid var(--lightgray);border-radius:6px;font-family:'Montserrat',sans-serif;font-size:11.5px;">
+        <span style="font-size:11px;color:#8593a1;">to</span>
+        <input type="month" id="rangeToInput" style="padding:5px 8px;border:1px solid var(--lightgray);border-radius:6px;font-family:'Montserrat',sans-serif;font-size:11.5px;">
+        <span id="rangeStatusNote" style="font-size:10.5px;color:#8593a1;"></span>
+      </div>
 
       <div id="listView">
         <div class="table-scroll" style="margin-top:12px;">
@@ -363,6 +367,13 @@
             </select>
           </div>
           <div class="axis-field">
+            <label>X scale</label>
+            <select id="matrixXScale">
+              <option value="linear">Linear</option>
+              <option value="logarithmic">Log</option>
+            </select>
+          </div>
+          <div class="axis-field">
             <label>Y axis</label>
             <select id="matrixY">
               <option value="revenue">Revenue / Profitability</option>
@@ -371,8 +382,15 @@
               <option value="total">Total score</option>
             </select>
           </div>
-          <div style="font-size:10.5px;color:#8593a1;max-width:260px;line-height:1.4;">
-            Dashed lines mark each axis's "best" threshold — the top-right quadrant is where your strongest clients cluster. Click a point to open that client.
+          <div class="axis-field">
+            <label>Y scale</label>
+            <select id="matrixYScale">
+              <option value="linear">Linear</option>
+              <option value="logarithmic">Log</option>
+            </select>
+          </div>
+          <div style="font-size:10.5px;color:#8593a1;line-height:1.4;flex:1;min-width:200px;">
+            Dashed lines mark each axis's "best" threshold — the top-right quadrant is where your strongest clients cluster. Click a point to open that client. If a few outliers squeeze everyone else into one corner, switch that axis to <strong>Log</strong> scale to spread points out evenly.
           </div>
         </div>
         <div class="chart-wrap" style="height:460px;">
@@ -408,23 +426,22 @@
               <option value="all" selected>All clients</option>
             </select>
           </div>
-          <div style="font-size:10.5px;color:#8593a1;max-width:260px;line-height:1.4;">
-            Pick any two periods to compare, ranked by total score. Quarterly/semi-annual use the most recent month uploaded within that period. Click a row to view that client's detail card (only available if they're in the currently loaded file). Saved in this browser only.
+          <div style="font-size:10.5px;color:#8593a1;line-height:1.4;flex:1;min-width:200px;">
+            Pick any two periods to compare, ranked by total score. Quarterly/semi-annual use the most recent month uploaded within that period.
           </div>
         </div>
         <div id="trendSummary" class="stat-pills" style="margin:10px 0;"></div>
-        <div id="manageSnapshots" style="margin-bottom:14px;"></div>
-        <div class="table-scroll" style="max-height:520px;">
+                <div class="table-scroll" style="max-height:520px;">
           <table>
             <thead>
               <tr>
-                <th>Rank</th>
-                <th>Code</th>
-                <th>Customer</th>
-                <th>Class</th>
-                <th>Total score</th>
-                <th>Previous rank</th>
-                <th>Movement</th>
+                <th data-trend-sort="rank">Rank</th>
+                <th data-trend-sort="code">Code</th>
+                <th data-trend-sort="name">Customer</th>
+                <th data-trend-sort="class">Class</th>
+                <th data-trend-sort="total">Total score</th>
+                <th data-trend-sort="prevRank">Previous rank</th>
+                <th data-trend-sort="movement">Movement</th>
               </tr>
             </thead>
             <tbody id="trendsTableBody">
@@ -458,8 +475,8 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ---------- 1. Grading configuration (editable in code) ---------- */
 const GRADING = {
-  fx:      { label:'FX Business',                 weight:0.30, thresholds:{best:3000000,     t2:2000000,     t3:500000,     worst:5000} },
-  banking: { label:'Overall Banking Relationship', weight:0.25, thresholds:{best:1000000000,  t2:500000000,   t3:300000000,  worst:100000000} },
+  fx:      { label:'FX Business',                 weight:0.30, thresholds:{best:3000000000, t2:2000000000, t3:500000000,  worst:5000000} },
+  banking: { label:'Overall Banking Relationship', weight:0.25, thresholds:{best:5000000000, t2:3000000000, t3:2000000000, worst:1000000000} },
   revenue: { label:'Revenue / Profitability',      weight:0.30, thresholds:{best:60000000,    t2:50000000,    t3:30000000,   worst:25000000} },
   relImportance: { label:'Relationship Importance', weight:0.10 },
   opQuality:     { label:'Operational Quality',     weight:0.05 }
@@ -506,6 +523,7 @@ let rates = {
 let sortState = { key:'total', dir:'desc' };
 let activeCode = null;
 let currentLoadedPeriod = null; // which saved period the live "clients" array corresponds to
+let currentMonthSpan = 1;       // how many months the live "clients" data represents (for prorating annual thresholds)
 let radarChart = null;
 let matrixChart = null;
 let currentView = 'list';                       // 'list' | 'matrix'
@@ -524,7 +542,6 @@ const HEADER_MAP = [
   { key:'loans',           match:h=>h.includes('loans') },
   { key:'avgBalance',      match:h=>h.includes('average balance') || h.includes('average daily balance') },
   { key:'intlTransfers',   match:h=>h.includes('international transfer') },
-  { key:'interestIncome',  match:h=>h.includes('interest income') && !h.includes('non') },
   { key:'nonInterestInc',  match:h=>h.includes('non-interest') || h.includes('non interest') },
 ];
 
@@ -538,7 +555,302 @@ function mapRow(headers, row){
   return rec;
 }
 
-/* ---------- 4. File parsing ---------- */
+/* ---------- Ilya's-file format support (multi-sheet, multi-month source) ---------- */
+// If someone uploads "Ilya's file - updated.xlsx" directly (instead of a flat
+// Sheet4 file), we detect it by its sheet names and extract just the ONE month
+// set in "Period for this upload" — pulling the matching column out of each
+// mapped sheet, the same way merge_fx_turnover.py's companion extraction
+// script does, so this tool can work straight from that file with no manual
+// conversion step.
+const ILYA_SHEET_MAP = {
+  fxTurnover:    'FX turnover',
+  deposits:      'Time Deposit',
+  loans:         'Loans',
+  avgBalance:    'Demand Deposit',
+  intlTransfers: 'SWIFT',
+  nonInterestInc:'Other NNII'
+};
+// Ilya's file stores everything "in thousands AMD"; this tool's thresholds are
+// calibrated for real/full-scale AMD values, so extracted numbers are scaled
+// up to match — same factor used by the companion Python scripts.
+const ILYA_THOUSANDS_MULTIPLIER = 1000;
+
+function findIlyaHeaderRowIndex(rows){
+  // Locate the header row by content ("Code" in column A) rather than assuming
+  // a fixed row index — some sheets' leading rows get collapsed differently
+  // depending on what (if anything) is in them.
+  for(let i=0; i<rows.length; i++){
+    const r = rows[i];
+    if(r && String(r[0] ?? '').trim().toLowerCase() === 'code') return i;
+  }
+  return -1;
+}
+
+function isIlyaFileFormat(wb){
+  const names = wb.SheetNames.map(n=>n.trim());
+  const expected = Object.values(ILYA_SHEET_MAP);
+  const matches = expected.filter(name=>names.includes(name)).length;
+  return matches >= 3; // at least half the expected sheets present
+}
+
+function headerCellToDate(value){
+  if(value instanceof Date) return value;
+  if(typeof value === 'number'){
+    if(value < 20000) return null; // looks like a bare year label (e.g. 2025), not a date serial
+    // Excel serial -> JS Date (standard conversion, matches SheetJS's own convention)
+    const utcDays = Math.floor(value - 25569);
+    return new Date(utcDays * 86400 * 1000);
+  }
+  if(typeof value === 'string'){
+    const m = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if(m){
+      let d=+m[1], mo=+m[2], y=+m[3];
+      if(y < 100) y += 2000;
+      return new Date(y, mo-1, d);
+    }
+    // Fallback: a numeric-looking TEXT string holding a raw Excel serial number
+    // (e.g. the literal text "45716" instead of a real date) — some header
+    // cells in Ilya's original sheets are stored this way.
+    const trimmed = value.trim();
+    if(/^\d+(\.\d+)?$/.test(trimmed)){
+      const asNumber = parseFloat(trimmed);
+      if(asNumber >= 20000){
+        const utcDays = Math.floor(asNumber - 25569);
+        return new Date(utcDays * 86400 * 1000);
+      }
+    }
+  }
+  return null;
+}
+function isSameDate(a, b){
+  if(!a || !b) return false;
+  return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+}
+function findMonthColumn(headerRow, targetDate){
+  if(!headerRow) return -1;
+  for(let c=2; c<headerRow.length; c++){ // column C (index 2) onward
+    if(isSameDate(headerCellToDate(headerRow[c]), targetDate)) return c;
+  }
+  return -1;
+}
+
+function findLatestAvailableMonth(wb){
+  let latest = null;
+  for(const sheetName of Object.values(ILYA_SHEET_MAP)){
+    const ws = wb.Sheets[sheetName];
+    if(!ws) continue;
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
+    const headerIdx = findIlyaHeaderRowIndex(rows);
+    if(headerIdx === -1) continue;
+    const headerRow = rows[headerIdx];
+    for(let c=2; c<headerRow.length; c++){
+      const d = headerCellToDate(headerRow[c]);
+      if(d && (!latest || d > latest)) latest = d;
+    }
+  }
+  return latest;
+}
+
+function parseIlyaFile(wb, periodMonthStr){
+  const [y, m] = (periodMonthStr || currentMonthValue()).split('-').map(Number);
+  let targetDate = new Date(y, m-1, new Date(y, m, 0).getDate());
+  let usedFallback = false;
+
+  const tryExtract = (date) => {
+    const fieldData = {};
+    const missingSheets = [];
+    let anyColumnFound = false;
+    for(const [fieldKey, sheetName] of Object.entries(ILYA_SHEET_MAP)){
+      fieldData[fieldKey] = new Map();
+      const ws = wb.Sheets[sheetName];
+      if(!ws){ missingSheets.push(sheetName); continue; }
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
+      const headerIdx = findIlyaHeaderRowIndex(rows);
+      if(headerIdx === -1){ missingSheets.push(`${sheetName} (header row not found)`); continue; }
+      const headerRow = rows[headerIdx];
+      const col = findMonthColumn(headerRow, date);
+      if(col === -1){ missingSheets.push(`${sheetName} (no column for this month)`); continue; }
+      anyColumnFound = true;
+      for(let r=headerIdx+1; r<rows.length; r++){
+        const row = rows[r];
+        if(!row) continue;
+        const code = row[0];
+        const name = row[1];
+        if(code===null || code===undefined || code==='') continue;
+        const raw = parseFloat(row[col]);
+        fieldData[fieldKey].set(String(code).trim(), { name, value: isNaN(raw)?0:raw });
+      }
+    }
+    return { fieldData, missingSheets, anyColumnFound };
+  };
+
+  let { fieldData, missingSheets, anyColumnFound } = tryExtract(targetDate);
+
+  // If the requested period doesn't exist in ANY sheet, fall back to the most
+  // recent month actually present in the file, rather than silently returning
+  // an empty client list.
+  if(!anyColumnFound){
+    const latest = findLatestAvailableMonth(wb);
+    if(latest){
+      targetDate = latest;
+      usedFallback = true;
+      ({ fieldData, missingSheets, anyColumnFound } = tryExtract(targetDate));
+    }
+  }
+
+  if(missingSheets.length){
+    console.warn('Ilya\'s file: some sheets/columns were not found and default to 0 for those fields:', missingSheets);
+  }
+
+  const master = new Map(); // code -> name
+  for(const map of Object.values(fieldData)){
+    for(const [code, {name}] of map){
+      if(!master.has(code) || !master.get(code)) master.set(code, name);
+    }
+  }
+
+  const parsed = [];
+  for(const [code, name] of master){
+    const getVal = key => {
+      const entry = fieldData[key].get(code);
+      return (entry ? entry.value : 0) * ILYA_THOUSANDS_MULTIPLIER;
+    };
+    parsed.push({
+      code, name,
+      fxTurnover: getVal('fxTurnover'),
+      deposits: getVal('deposits'),
+      loans: getVal('loans'),
+      avgBalance: getVal('avgBalance'),
+      intlTransfers: getVal('intlTransfers'),
+      nonInterestInc: getVal('nonInterestInc')
+    });
+  }
+  return { parsed, usedFallback, targetDate };
+}
+
+function normalizeCodeForMatching(code){
+  // Some sheets store the customer code as padded text (e.g. "00972775") and
+  // others as a plain number (972775, dropping the leading zeros) — normalize
+  // both to the same key so customers still match correctly across sheets.
+  if(code === null || code === undefined) return '';
+  return String(code).trim().replace(/^0+(?=\d)/, '');
+}
+function pickBetterCode(a, b){
+  // Prefer whichever raw form is longer (the zero-padded text version) for display.
+  if(!a) return b;
+  if(!b) return a;
+  return String(b).length > String(a).length ? b : a;
+}
+
+function extractIlyaMonthClients(wb, targetDate){
+  // Same per-field extraction as parseIlyaFile's tryExtract, but standalone
+  // so it can be called once per month when bulk-importing every month found.
+  const fieldData = {};
+  for(const [fieldKey, sheetName] of Object.entries(ILYA_SHEET_MAP)){
+    fieldData[fieldKey] = new Map();
+    const ws = wb.Sheets[sheetName];
+    if(!ws) continue;
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
+    const headerIdx = findIlyaHeaderRowIndex(rows);
+    if(headerIdx === -1) continue;
+    const headerRow = rows[headerIdx];
+    const col = findMonthColumn(headerRow, targetDate);
+    if(col === -1) continue;
+    for(let r=headerIdx+1; r<rows.length; r++){
+      const row = rows[r];
+      if(!row) continue;
+      const code = row[0];
+      const name = row[1];
+      if(code===null || code===undefined || code==='') continue;
+      const raw = parseFloat(row[col]);
+      const normCode = normalizeCodeForMatching(code);
+      fieldData[fieldKey].set(normCode, { name, value: isNaN(raw)?0:raw, rawCode: String(code).trim() });
+    }
+  }
+  const master = new Map(); // normCode -> {displayCode, name}
+  for(const map of Object.values(fieldData)){
+    for(const [normCode, {name, rawCode}] of map){
+      const existing = master.get(normCode);
+      const displayCode = pickBetterCode(existing ? existing.displayCode : null, rawCode);
+      const displayName = (existing && existing.name) ? existing.name : name;
+      master.set(normCode, { displayCode, name: displayName });
+    }
+  }
+  const parsed = [];
+  for(const [normCode, {displayCode, name}] of master){
+    const getVal = key => {
+      const entry = fieldData[key].get(normCode);
+      return (entry ? entry.value : 0) * ILYA_THOUSANDS_MULTIPLIER;
+    };
+    parsed.push({
+      code: displayCode, name,
+      fxTurnover: getVal('fxTurnover'),
+      deposits: getVal('deposits'),
+      loans: getVal('loans'),
+      avgBalance: getVal('avgBalance'),
+      intlTransfers: getVal('intlTransfers'),
+      nonInterestInc: getVal('nonInterestInc')
+    });
+  }
+  return parsed;
+}
+
+function findAllAvailableMonths(wb){
+  // Returns [["YYYY-MM", Date], ...] for every distinct month found across
+  // the mapped sheets, sorted chronologically.
+  const map = new Map();
+  for(const sheetName of Object.values(ILYA_SHEET_MAP)){
+    const ws = wb.Sheets[sheetName];
+    if(!ws) continue;
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
+    const headerIdx = findIlyaHeaderRowIndex(rows);
+    if(headerIdx === -1) continue;
+    const headerRow = rows[headerIdx];
+    for(let c=2; c<headerRow.length; c++){
+      const d = headerCellToDate(headerRow[c]);
+      if(d){
+        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        if(!map.has(key)) map.set(key, d);
+      }
+    }
+  }
+  return Array.from(map.entries()).sort((a,b)=>a[1]-b[1]);
+}
+
+async function importAllIlyaMonths(wb, file){
+  const months = findAllAvailableMonths(wb);
+  if(months.length === 0){
+    fileStatus.textContent = 'No date columns found in this file — check it matches the expected sheet structure.';
+    return;
+  }
+  fileStatus.textContent = `Importing ${months.length} month(s) from "${file.name}"…`;
+
+  const excludedSet = await loadExcludedCodes();
+  const stripExcluded = arr => excludedSet.size ? arr.filter(c => !excludedSet.has(String(c.code).trim())) : arr;
+
+  // Every month except the most recent gets saved straight to Trends history.
+  const savePromises = [];
+  for(let i=0; i<months.length-1; i++){
+    const [key, date] = months[i];
+    const monthClients = stripExcluded(extractIlyaMonthClients(wb, date));
+    if(monthClients.length > 0){
+      savePromises.push(saveSnapshot(key, monthClients));
+    }
+  }
+  await Promise.all(savePromises);
+  await populateRangeSelectors();
+
+  // The most recent month becomes the live List/Analytics session, through
+  // the normal upload flow (which also saves its own Trends snapshot).
+  const [latestKey, latestDate] = months[months.length-1];
+  const latestClients = extractIlyaMonthClients(wb, latestDate);
+  document.getElementById('periodInput').value = latestKey;
+  loadClients(latestClients);
+
+  fileStatus.textContent = `Imported ${months.length} month(s) (${months[0][0]} to ${latestKey}) from "${file.name}" — showing ${latestClients.length} clients for ${latestKey}. All months saved to Trends history.`;
+}
+
+
 const fileInput = document.getElementById('fileInput');
 const dropZone = document.getElementById('dropZone');
 const fileStatus = document.getElementById('fileStatus');
@@ -552,6 +864,7 @@ document.getElementById('clearDataBtn').addEventListener('click', async ()=>{
   if(targetPeriod) await deleteSnapshot(targetPeriod);
   resetLiveSession();
   await populatePeriodSelectors();
+  await populateRangeSelectors();
   await renderManageSnapshots();
   await renderTrends();
 });
@@ -569,10 +882,19 @@ fileInput.addEventListener('change', e=>{
 
 function handleFile(file){
   const reader = new FileReader();
-  reader.onload = evt=>{
+  reader.onload = async evt=>{
     try{
       const data = new Uint8Array(evt.target.result);
-      const wb = XLSX.read(data, {type:'array'});
+      const wb = XLSX.read(data, {type:'array', cellDates:true});
+
+      if(isIlyaFileFormat(wb)){
+        // Ilya's file inherently spans many months — import all of them at
+        // once (each saved to Trends history) rather than requiring a
+        // separate upload per month.
+        await importAllIlyaMonths(wb, file);
+        return;
+      }
+
       const sheetName = wb.SheetNames.find(n=>n.toLowerCase().includes('sheet4')) || wb.SheetNames[0];
       const ws = wb.Sheets[sheetName];
       const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
@@ -582,11 +904,11 @@ function handleFile(file){
       const headers = rows[headerRowIdx];
       const dataRows = rows.slice(headerRowIdx+1).filter(r=>r && r.some(c=>c!==null && c!==''));
       const parsed = dataRows.map(r=>mapRow(headers, r)).filter(r=>r.code);
-      loadClients(parsed);
       fileStatus.textContent = `Loaded ${parsed.length} clients from "${file.name}"`;
+      loadClients(parsed);
     }catch(err){
       console.error(err);
-      fileStatus.textContent = 'Could not read this file — check it matches the Sheet4 format.';
+      fileStatus.textContent = 'Could not read this file — check it matches the Sheet4 or Ilya\'s-file format.';
     }
   };
   reader.readAsArrayBuffer(file);
@@ -603,18 +925,20 @@ async function loadClients(parsed){
       loans: num(r.loans),
       avgBalance: num(r.avgBalance),
       intlTransfers: num(r.intlTransfers),
-      interestIncome: num(r.interestIncome),
       nonInterestInc: num(r.nonInterestInc),
     };
   });
+  clients = await filterOutExcluded(clients); // removed customers stay removed even on re-upload
   clients.forEach(c=>{
     if(!manualScores[c.code]) manualScores[c.code] = { rel:10, op:10 };
   });
   activeCode = null;
+  currentMonthSpan = 1; // a normal upload always represents a single month
   renderAll();
   const periodKey = document.getElementById('periodInput').value || currentMonthValue();
   currentLoadedPeriod = periodKey;
   await snapshotCurrentClients(periodKey);
+  await populateRangeSelectors();
   if(currentView==='trends'){ await populatePeriodSelectors(); await renderManageSnapshots(); await renderTrends(); }
 }
 
@@ -658,24 +982,44 @@ function classFromTiers(fxTier, bankingTier, revenueTier){
   return CLASS_BANDS.find(b=>b.key===key) || CLASS_BANDS[CLASS_BANDS.length-1];
 }
 
-function gradeClient(c){
+// The 3 numeric criteria's thresholds are defined per FULL YEAR (12 months) of
+// activity. When grading data that only spans a shorter (or longer) window —
+// a single month, a summed range, a quarter, a half-year — the thresholds are
+// scaled proportionally so a partial period is judged fairly against a
+// same-length slice of the annual target, not the full annual bar.
+function proratedThresholds(thresholds, monthCount){
+  const factor = (monthCount || 12) / 12;
+  return {
+    best:  thresholds.best  * factor,
+    t2:    thresholds.t2    * factor,
+    t3:    thresholds.t3    * factor,
+    worst: thresholds.worst * factor
+  };
+}
+
+function gradeClient(c, monthCount){
+  monthCount = monthCount || 1; // default: caller is showing one month's data
   const ms = manualScores[c.code] || {rel:10, op:10};
   const bankingActual = c.deposits + c.loans + c.avgBalance + c.intlTransfers;
-  const revenueActual = c.interestIncome + c.nonInterestInc;
+  const revenueActual = c.nonInterestInc;
+
+  const fxThresholds = proratedThresholds(GRADING.fx.thresholds, monthCount);
+  const bankingThresholds = proratedThresholds(GRADING.banking.thresholds, monthCount);
+  const revenueThresholds = proratedThresholds(GRADING.revenue.thresholds, monthCount);
 
   // Tiers, shown per-criterion in the breakdown (informational — no longer drive the class)
-  const fxTier = tierForValue(c.fxTurnover, GRADING.fx.thresholds);
-  const bankingTier = tierForValue(bankingActual, GRADING.banking.thresholds);
-  const revenueTier = tierForValue(revenueActual, GRADING.revenue.thresholds);
+  const fxTier = tierForValue(c.fxTurnover, fxThresholds);
+  const bankingTier = tierForValue(bankingActual, bankingThresholds);
+  const revenueTier = tierForValue(revenueActual, revenueThresholds);
 
   // SCORE: continuous calculation, matches the workbook formula exactly:
   // =Actual/Threshold*10*Weight — uncapped, so exceeding the best/max threshold
   // keeps rewarding the client proportionally further.
   const ratio = (actual, threshold) => threshold>0 ? actual/threshold : 0;
 
-  const fxRatio = ratio(c.fxTurnover, GRADING.fx.thresholds.best);
-  const bankingRatio = ratio(bankingActual, GRADING.banking.thresholds.best);
-  const revenueRatio = ratio(revenueActual, GRADING.revenue.thresholds.best);
+  const fxRatio = ratio(c.fxTurnover, fxThresholds.best);
+  const bankingRatio = ratio(bankingActual, bankingThresholds.best);
+  const revenueRatio = ratio(revenueActual, revenueThresholds.best);
   const relRatio = ms.rel/10;
   const opRatio = ms.op/10;
 
@@ -697,6 +1041,7 @@ function gradeClient(c){
   return {
     bankingActual, revenueActual,
     fxTier, bankingTier, revenueTier,
+    fxThresholds, bankingThresholds, revenueThresholds, monthCount,
     fxRatio, bankingRatio, revenueRatio,
     fxContrib, bankingContrib, revenueContrib, relContrib, opContrib,
     total, cls
@@ -727,7 +1072,7 @@ function metricThreshold(key){
 function gradedAndFiltered(){
   const q = document.getElementById('searchBox').value.trim().toLowerCase();
   return clients
-    .map(c=>({c, g:gradeClient(c)}))
+    .map(c=>({c, g:gradeClient(c, currentMonthSpan)}))
     .filter(({c,g})=> filterState.has(g.cls.key))
     .filter(({c})=> !q || c.code.toLowerCase().includes(q) || c.name.toLowerCase().includes(q));
 }
@@ -747,10 +1092,11 @@ function renderRulesSummary(){
   el.innerHTML = `
     <div><strong>FX Business</strong> ${(GRADING.fx.weight*100).toFixed(0)}% — turnover ≥ ${fmt(GRADING.fx.thresholds.best)} AMD</div>
     <div><strong>Banking Relationship</strong> ${(GRADING.banking.weight*100).toFixed(0)}% — deposits+loans+balance+transfers ≥ ${fmt(GRADING.banking.thresholds.best)} AMD</div>
-    <div><strong>Revenue/Profitability</strong> ${(GRADING.revenue.weight*100).toFixed(0)}% — interest+non-interest income ≥ ${fmt(GRADING.revenue.thresholds.best)} AMD</div>
+    <div><strong>Revenue/Profitability</strong> ${(GRADING.revenue.weight*100).toFixed(0)}% — non-interest income ≥ ${fmt(GRADING.revenue.thresholds.best)} AMD</div>
     <div><strong>Relationship Importance</strong> ${(GRADING.relImportance.weight*100).toFixed(0)}% — manual, 1–10</div>
     <div><strong>Operational Quality</strong> ${(GRADING.opQuality.weight*100).toFixed(0)}% — manual, 1–10</div>
     <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--lightgray);">Class is driven by the total score out of ${TOTAL_MAX.toFixed(1)}: <strong>Best</strong> ≥9 · <strong>Premium</strong> ≥8 · <strong>Standard</strong> ≥5 · <strong>Actual</strong> below 5</div>
+    <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--lightgray);">These thresholds are annual (12-month) targets. Viewing a single month, a range, or a Trends period covering fewer/more months automatically prorates them (e.g. 1 month → 1/12 of each threshold) — List, Analytics, and Trends all apply this the same way.${currentMonthSpan!==12 ? ` <strong>Currently showing ${currentMonthSpan} month${currentMonthSpan===1?'':'s'}</strong> of data.` : ''}</div>
     <div style="margin-top:10px;"><button class="settings-link" id="reopenSettingsBtn">Adjust weights &amp; thresholds…</button></div>
   `;
   document.getElementById('reopenSettingsBtn').addEventListener('click', openSettingsModal);
@@ -859,7 +1205,7 @@ function fmtAMD(n){ return Math.round(n).toLocaleString('en-US'); }
 function renderFilterChips(){
   const el = document.getElementById('filterChips');
   const allCounts = {best:0,t2:0,t3:0,worst:0};
-  clients.forEach(c=>{ allCounts[gradeClient(c).cls.key]++; });
+  clients.forEach(c=>{ allCounts[gradeClient(c, currentMonthSpan).cls.key]++; });
   const isFiltered = filterState.size < CLASS_BANDS.length;
   el.innerHTML = `<span class="fc-label">Filter</span>` + CLASS_BANDS.map(b=>{
     const on = filterState.has(b.key) && isFiltered;
@@ -915,7 +1261,6 @@ function renderTable(){
   if(clients.length===0){
     tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Upload a client file to begin grading.</td></tr>`;
     document.getElementById('clientCount').textContent = '';
-    document.getElementById('statPills').innerHTML = '';
     document.getElementById('filterChips').innerHTML = '';
     return;
   }
@@ -960,13 +1305,6 @@ function renderTable(){
   });
 
   document.getElementById('clientCount').textContent = `${clients.length} clients loaded`;
-
-  // stat pills
-  const counts = {best:0,t2:0,t3:0,worst:0};
-  clients.forEach(c=>{ counts[gradeClient(c).cls.key]++; });
-  document.getElementById('statPills').innerHTML = CLASS_BANDS.map(b=>`
-    <span class="pill"><span class="dot" style="background:${b.color}"></span>${b.label}: ${counts[b.key]}</span>
-  `).join('');
 }
 
 const TEXT_SORT_KEYS = new Set(['code','name']);
@@ -994,6 +1332,8 @@ document.querySelectorAll('.view-btn').forEach(btn=>{
 
 document.getElementById('matrixX').addEventListener('change', e=>{ matrixAxes.x = e.target.value; renderMatrix(); });
 document.getElementById('matrixY').addEventListener('change', e=>{ matrixAxes.y = e.target.value; renderMatrix(); });
+document.getElementById('matrixXScale').addEventListener('change', renderMatrix);
+document.getElementById('matrixYScale').addEventListener('change', renderMatrix);
 document.getElementById('trendGranularity').addEventListener('change', ()=>{ populatePeriodSelectors(); renderTrends(); });
 document.getElementById('trendTopN').addEventListener('change', renderTrends);
 document.getElementById('trendPeriodA').addEventListener('change', renderTrends);
@@ -1006,12 +1346,54 @@ function currentMonthValue(){
 }
 document.getElementById('periodInput').value = currentMonthValue();
 
+const EXCLUDED_PERIOD_KEY = '__excluded_customers__'; // reserved period key, not a real calendar month
+const MANUAL_SCORES_PERIOD_KEY = '__manual_scores__';  // reserved period key for saved Relationship/Operational scores
+
+async function loadExcludedCodes(){
+  const { data, error } = await sb.from('client_grading_snapshots')
+    .select('rows').eq('period', EXCLUDED_PERIOD_KEY).maybeSingle();
+  if(error || !data) return new Set();
+  return new Set((data.rows || []).map(r => r.code));
+}
+async function addExcludedCode(code){
+  const codes = await loadExcludedCodes();
+  codes.add(String(code).trim());
+  await saveSnapshot(EXCLUDED_PERIOD_KEY, Array.from(codes).map(c => ({ code: c })));
+}
+async function filterOutExcluded(clientArray){
+  const excluded = await loadExcludedCodes();
+  if(excluded.size === 0) return clientArray;
+  return clientArray.filter(c => !excluded.has(String(c.code).trim()));
+}
+
+async function loadManualScoresFromServer(){
+  const { data, error } = await sb.from('client_grading_snapshots')
+    .select('rows').eq('period', MANUAL_SCORES_PERIOD_KEY).maybeSingle();
+  if(error || !data) return;
+  (data.rows || []).forEach(r => {
+    manualScores[r.code] = { rel: r.rel, op: r.op };
+  });
+}
+async function saveManualScoresToServer(){
+  // Persists the whole current manualScores map in one write — simple and
+  // avoids partial-merge races between concurrent users.
+  const rows = Object.entries(manualScores).map(([code, ms]) => ({ code, rel: ms.rel, op: ms.op }));
+  await saveSnapshot(MANUAL_SCORES_PERIOD_KEY, rows);
+}
+
 async function loadSnapshots(){
-  // Returns { monthKey: rawClientRows[] }
+  // Returns { monthKey: rawClientRows[] } — excludes the reserved exclusion-list
+  // entry (not a real period) and filters out any customer that's been removed,
+  // so historical Trends/range data stays clean too, not just the live session.
+  const excluded = await loadExcludedCodes();
   const { data, error } = await sb.from('client_grading_snapshots').select('period, rows');
   if(error){ console.error('loadSnapshots failed', error); return {}; }
   const result = {};
-  data.forEach(row => { result[row.period] = row.rows; });
+  data.forEach(row => {
+    if(row.period === EXCLUDED_PERIOD_KEY || row.period === MANUAL_SCORES_PERIOD_KEY) return;
+    const rows = excluded.size ? (row.rows || []).filter(r => !excluded.has(String(r.code).trim())) : row.rows;
+    result[row.period] = rows;
+  });
   return result;
 }
 async function saveSnapshot(monthKey, rawRows){
@@ -1030,7 +1412,12 @@ async function deleteSnapshot(monthKey){
   if(error) console.error('deleteSnapshot failed', error);
 }
 async function clearAllSnapshots(){
-  const { error } = await sb.from('client_grading_snapshots').delete().neq('period', '__never_matches__');
+  // Deletes every real saved period, but deliberately keeps the exclusion-list
+  // and manual-scores rows — a full clear shouldn't undo customer removals or
+  // saved Relationship/Operational Quality scores.
+  const { error } = await sb.from('client_grading_snapshots').delete()
+    .neq('period', EXCLUDED_PERIOD_KEY)
+    .neq('period', MANUAL_SCORES_PERIOD_KEY);
   if(error) console.error('clearAllSnapshots failed', error);
 }
 function resetLiveSession(){
@@ -1039,6 +1426,7 @@ function resetLiveSession(){
   clients = [];
   activeCode = null;
   currentLoadedPeriod = null;
+  currentMonthSpan = 1;
   document.getElementById('fileStatus').textContent = '';
   renderTable();
   renderMatrix();
@@ -1055,13 +1443,19 @@ async function renderManageSnapshots(){
   const snaps = await loadSnapshots();
   const months = Object.keys(snaps).sort();
   if(months.length === 0){ el.innerHTML = ''; return; }
-  el.innerHTML = `<div style="font-size:10.5px;color:#8593a1;margin-bottom:6px;">Saved periods (shared — visible to everyone with this link) — click ✕ to delete one, or clear everything. Deleting the period currently loaded in List/Analytics clears those views too, since all tabs share the same data:</div>` +
-    months.map(mk => `
-      <span class="snapshot-chip">${mk} (${snaps[mk].length})
-        <button data-month="${mk}" title="Delete this period">✕</button>
-      </span>
-    `).join('') +
-    `<button class="btn light" id="clearAllSnapshotsBtn" style="font-size:10.5px;padding:5px 12px;margin-left:6px;">Clear all saved periods</button>`;
+  el.innerHTML = `
+    <div style="font-size:10.5px;color:#8593a1;margin-bottom:8px;">Click ✕ to delete one, or clear everything.</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+      ${months.map(mk => `
+        <span class="snapshot-chip">${mk} (${snaps[mk].length})
+          <button data-month="${mk}" title="Delete this period">✕</button>
+        </span>
+      `).join('')}
+    </div>
+    <div style="display:flex;justify-content:flex-end;border-top:1px solid var(--lightgray);padding-top:8px;">
+      <button class="btn light" id="clearAllSnapshotsBtn" style="font-size:10.5px;padding:6px 14px;">Clear all saved periods</button>
+    </div>
+  `;
 
   el.querySelectorAll('button[data-month]').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
@@ -1069,6 +1463,7 @@ async function renderManageSnapshots(){
       await deleteSnapshot(btn.dataset.month);
       if(wasLoadedPeriod) resetLiveSession();
       await populatePeriodSelectors();
+      await populateRangeSelectors();
       await renderManageSnapshots();
       await renderTrends();
     });
@@ -1080,6 +1475,7 @@ async function renderManageSnapshots(){
       await clearAllSnapshots();
       resetLiveSession();
       await populatePeriodSelectors();
+      await populateRangeSelectors();
       await renderManageSnapshots();
       await renderTrends();
     });
@@ -1101,30 +1497,61 @@ function periodGroupKey(monthKey, granularity){
   return halfKey(monthKey);
 }
 
-function gradeAndRank(rawRows){
+function gradeAndRank(rawRows, monthCount){
   const graded = rawRows.map(c=>{
-    const g = gradeClient(c);
+    const g = gradeClient(c, monthCount);
     return { code:c.code, name:c.name, total:g.total, clsKey:g.cls.key, clsLabel:g.cls.label };
   }).sort((a,b)=> b.total - a.total);
   graded.forEach((r,i)=> r.rank = i+1);
   return graded;
 }
 
-// Returns an array of {periodLabel, monthKey, rows} — one entry per period group,
-// each using the LATEST month's snapshot within that group, sorted chronologically.
-// `rows` here are freshly graded/ranked from the raw stored data using current weights.
+function sumRawRowSets(rowSets){
+  // rowSets: array of raw-client-row arrays (one per month) -> summed per customer,
+  // same aggregation used by the List/Analytics "View a period range" feature.
+  const aggregated = new Map();
+  for(const rows of rowSets){
+    for(const row of rows){
+      if(!aggregated.has(row.code)){
+        const rec = { code: row.code, name: row.name };
+        RANGE_NUMERIC_FIELDS.forEach(f => rec[f] = 0);
+        aggregated.set(row.code, rec);
+      }
+      const agg = aggregated.get(row.code);
+      if(!agg.name && row.name) agg.name = row.name;
+      RANGE_NUMERIC_FIELDS.forEach(f => { agg[f] += (row[f] || 0); });
+    }
+  }
+  return Array.from(aggregated.values());
+}
+
+// Returns an array of {periodLabel, monthKey, monthCount, rows} — one entry per
+// period group. Monthly granularity = one month per group; Quarterly/Semi-annual
+// SUM every month that falls within that quarter/half (not just the latest one),
+// same as "View a period range" — and monthCount tracks how many months actually
+// contributed, so gradeClient can prorate the annual thresholds correctly.
 async function groupedPeriods(granularity){
   const snaps = await loadSnapshots();
   const months = Object.keys(snaps).sort(); // "YYYY-MM" sorts correctly as strings
   const groups = {};
   months.forEach(mk=>{
     const label = periodGroupKey(mk, granularity);
-    // Keep overwriting so the LAST (most recent) month in this group wins
-    groups[label] = { periodLabel: label, monthKey: mk, rawRows: snaps[mk] };
+    if(!groups[label]) groups[label] = { periodLabel: label, monthKeys: [], rawRowSets: [] };
+    groups[label].monthKeys.push(mk);
+    groups[label].rawRowSets.push(snaps[mk]);
   });
   return Object.values(groups)
-    .sort((a,b)=> a.monthKey.localeCompare(b.monthKey))
-    .map(g => ({ periodLabel: g.periodLabel, monthKey: g.monthKey, rows: gradeAndRank(g.rawRows) }));
+    .sort((a,b)=> a.monthKeys[a.monthKeys.length-1].localeCompare(b.monthKeys[b.monthKeys.length-1]))
+    .map(g => {
+      const monthCount = g.monthKeys.length;
+      const combinedRaw = sumRawRowSets(g.rawRowSets);
+      return {
+        periodLabel: g.periodLabel,
+        monthKey: g.monthKeys[g.monthKeys.length-1],
+        monthCount,
+        rows: gradeAndRank(combinedRaw, monthCount)
+      };
+    });
 }
 
 async function populatePeriodSelectors(){
@@ -1139,16 +1566,41 @@ async function populatePeriodSelectors(){
   selB.innerHTML = optionsHtml;
 
   if(groups.length === 0) return;
-  // Preserve prior selections if still valid, otherwise default to the two most recent periods
+  // Default to the two most recent NON-EMPTY periods — an empty period (e.g.
+  // saved before a bug fix, or with no matching data) shouldn't get picked as
+  // "current" just because it sorts after a real one.
+  const nonEmptyGroups = groups.filter(g => g.rows && g.rows.length > 0);
+  const fallbackPool = nonEmptyGroups.length > 0 ? nonEmptyGroups : groups;
   const labels = groups.map(g=>g.periodLabel);
-  selA.value = labels.includes(prevA) ? prevA : (groups.length>1 ? groups[groups.length-2].periodLabel : groups[0].periodLabel);
-  selB.value = labels.includes(prevB) ? prevB : groups[groups.length-1].periodLabel;
+  selA.value = labels.includes(prevA) ? prevA : (fallbackPool.length>1 ? fallbackPool[fallbackPool.length-2].periodLabel : fallbackPool[0].periodLabel);
+  selB.value = labels.includes(prevB) ? prevB : fallbackPool[fallbackPool.length-1].periodLabel;
 }
 
 let trendMovementFilter = null; // null = show all, or 'up' | 'down' | 'same' | 'new'
+let trendSortState = { key:'rank', dir:'asc' };
+const TREND_TEXT_SORT_KEYS = new Set(['code','name','class']);
+const TREND_CLASS_ORDER = { best:4, t2:3, t3:2, worst:1 };
+
+function updateTrendSortHeaders(){
+  document.querySelectorAll('thead th[data-trend-sort]').forEach(th=>{
+    const key = th.dataset.trendSort;
+    const labels = { rank:'Rank', code:'Code', name:'Customer', class:'Class', total:'Total score', prevRank:'Previous rank', movement:'Movement' };
+    const arrow = trendSortState.key===key ? (trendSortState.dir==='asc' ? ' ▲' : ' ▼') : '';
+    th.textContent = labels[key] + arrow;
+  });
+}
+document.querySelectorAll('thead th[data-trend-sort]').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const key = th.dataset.trendSort;
+    if(trendSortState.key===key) trendSortState.dir = trendSortState.dir==='asc' ? 'desc' : 'asc';
+    else { trendSortState.key = key; trendSortState.dir = TREND_TEXT_SORT_KEYS.has(key) ? 'asc' : 'desc'; }
+    renderTrends();
+  });
+});
 
 async function renderTrends(){
   if(currentView!=='trends') return;
+  updateTrendSortHeaders();
   const granularity = document.getElementById('trendGranularity').value;
   const topNVal = document.getElementById('trendTopN').value;
   const groups = await groupedPeriods(granularity);
@@ -1186,10 +1638,28 @@ async function renderTrends(){
     else if(prev.rank > r.rank){ moveType='up'; delta = prev.rank-r.rank; up++; moveHtml = `<span style="color:#1ea0f0;font-weight:700;">▲ ${delta}</span>`; }
     else if(prev.rank < r.rank){ moveType='down'; delta = r.rank-prev.rank; down++; moveHtml = `<span style="color:var(--orange);font-weight:700;">▼ ${delta}</span>`; }
     else { moveType='same'; same++; moveHtml = '<span style="color:#8593a1;">—</span>'; }
-    return { r, prev, moveType, moveHtml };
+    return { r, prev, moveType, moveHtml, delta };
   });
 
   let rows = trendMovementFilter ? withMovement.filter(x=>x.moveType===trendMovementFilter) : withMovement;
+
+  const trendSortKeyMap = {
+    rank:     x => x.r.rank,
+    code:     x => x.r.code,
+    name:     x => x.r.name,
+    class:    x => TREND_CLASS_ORDER[x.r.clsKey] || 0,
+    total:    x => x.r.total,
+    prevRank: x => x.prev ? x.prev.rank : Infinity,
+    // Movement sorted by signed magnitude: up=+delta, down=-delta, same=0, new=treated as largest positive
+    movement: x => x.moveType==='new' ? Infinity : (x.moveType==='up' ? x.delta : (x.moveType==='down' ? -x.delta : 0)),
+  };
+  const trendKeyFn = trendSortKeyMap[trendSortState.key] || trendSortKeyMap.rank;
+  rows = rows.slice().sort((a,b)=>{
+    const va = trendKeyFn(a), vb = trendKeyFn(b);
+    const cmp = typeof va==='string' ? va.localeCompare(vb) : va-vb;
+    return trendSortState.dir==='asc' ? cmp : -cmp;
+  });
+
   if(topNVal !== 'all') rows = rows.slice(0, parseInt(topNVal,10));
 
   const bodyHtml = rows.map(({r, prev, moveHtml})=>{
@@ -1250,6 +1720,15 @@ async function renderTrends(){
   if(clearMoveBtn) clearMoveBtn.addEventListener('click', ()=>{ trendMovementFilter = null; renderTrends(); });
 }
 
+function safeLogMin(values){
+  // Chart.js logarithmic scales require min > 0 — pick something sensibly
+  // below the smallest positive value present (zeros/negatives can't be
+  // shown on a log axis at all, and will simply be omitted from view).
+  const positives = values.filter(v=>v>0);
+  if(positives.length===0) return 1;
+  return Math.max(0.01, Math.min(...positives) * 0.5);
+}
+
 function renderMatrix(){
   if(currentView!=='matrix') return;
   const canvas = document.getElementById('matrixCanvas');
@@ -1260,6 +1739,8 @@ function renderMatrix(){
   }
   const rowsData = gradedAndFiltered();
   const xKey = matrixAxes.x, yKey = matrixAxes.y;
+  const xScaleType = document.getElementById('matrixXScale').value;
+  const yScaleType = document.getElementById('matrixYScale').value;
 
   const byClass = {};
   CLASS_BANDS.forEach(b=> byClass[b.key] = []);
@@ -1271,6 +1752,8 @@ function renderMatrix(){
   const allY = rowsData.map(({c,g})=>metricValue(yKey,c,g));
   const xMax = Math.max(metricThreshold(xKey)*1.15, ...allX, 1);
   const yMax = Math.max(metricThreshold(yKey)*1.15, ...allY, 1);
+  const xMin = xScaleType==='logarithmic' ? safeLogMin(allX) : 0;
+  const yMin = yScaleType==='logarithmic' ? safeLogMin(allY) : 0;
   const xThresh = metricThreshold(xKey);
   const yThresh = metricThreshold(yKey);
 
@@ -1284,12 +1767,12 @@ function renderMatrix(){
 
   datasets.push({
     label:'X threshold', type:'line',
-    data:[{x:xThresh,y:0},{x:xThresh,y:yMax}],
+    data:[{x:xThresh,y:yMin},{x:xThresh,y:yMax}],
     borderColor:'#8593a1', borderWidth:1, borderDash:[6,4], pointRadius:0, fill:false, order:0
   });
   datasets.push({
     label:'Y threshold', type:'line',
-    data:[{x:0,y:yThresh},{x:xMax,y:yThresh}],
+    data:[{x:xMin,y:yThresh},{x:xMax,y:yThresh}],
     borderColor:'#8593a1', borderWidth:1, borderDash:[6,4], pointRadius:0, fill:false, order:0
   });
 
@@ -1300,8 +1783,8 @@ function renderMatrix(){
     options:{
       maintainAspectRatio:false,
       scales:{
-        x:{ min:0, max:xMax, title:{display:true,text:metricLabel(xKey),font:{family:'Montserrat',size:11}}, ticks:{callback:v=>compactNum(v)} },
-        y:{ min:0, max:yMax, title:{display:true,text:metricLabel(yKey),font:{family:'Montserrat',size:11}}, ticks:{callback:v=>compactNum(v)} }
+        x:{ type:xScaleType, min:xMin, max:xMax, title:{display:true,text:metricLabel(xKey),font:{family:'Montserrat',size:11}}, ticks:{callback:v=>compactNum(v)} },
+        y:{ type:yScaleType, min:yMin, max:yMax, title:{display:true,text:metricLabel(yKey),font:{family:'Montserrat',size:11}}, ticks:{callback:v=>compactNum(v)} }
       },
       plugins:{
         legend:{ labels:{ filter:item=>!item.text.includes('threshold'), font:{family:'Montserrat',size:11} } },
@@ -1341,14 +1824,14 @@ function crossSpread(mid, halfWidth){
 function renderDetail(code){
   const c = clients.find(x=>x.code===code);
   if(!c) return;
-  const g = gradeClient(c);
+  const g = gradeClient(c, currentMonthSpan);
   const ms = manualScores[code];
   const panel = document.getElementById('detailPanel');
 
   const rows = [
-    { label:GRADING.fx.label, weight:GRADING.fx.weight, actual:c.fxTurnover, best:GRADING.fx.thresholds.best, tier:g.fxTier, ratio:g.fxRatio, contrib:g.fxContrib },
-    { label:GRADING.banking.label, weight:GRADING.banking.weight, actual:g.bankingActual, best:GRADING.banking.thresholds.best, tier:g.bankingTier, ratio:g.bankingRatio, contrib:g.bankingContrib },
-    { label:GRADING.revenue.label, weight:GRADING.revenue.weight, actual:g.revenueActual, best:GRADING.revenue.thresholds.best, tier:g.revenueTier, ratio:g.revenueRatio, contrib:g.revenueContrib },
+    { label:GRADING.fx.label, weight:GRADING.fx.weight, actual:c.fxTurnover, best:g.fxThresholds.best, tier:g.fxTier, ratio:g.fxRatio, contrib:g.fxContrib },
+    { label:GRADING.banking.label, weight:GRADING.banking.weight, actual:g.bankingActual, best:g.bankingThresholds.best, tier:g.bankingTier, ratio:g.bankingRatio, contrib:g.bankingContrib },
+    { label:GRADING.revenue.label, weight:GRADING.revenue.weight, actual:g.revenueActual, best:g.revenueThresholds.best, tier:g.revenueTier, ratio:g.revenueRatio, contrib:g.revenueContrib },
   ];
 
   const spreads = FX_SPREADS[g.cls.key];
@@ -1370,12 +1853,15 @@ function renderDetail(code){
         <h3>${c.name}</h3>
         <div class="code">${c.code}</div>
       </div>
-      <span class="badge" style="background:${g.cls.color};font-size:12px;padding:6px 16px;">${g.cls.label} client</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="badge" style="background:${g.cls.color};font-size:12px;padding:6px 16px;">${g.cls.label} client</span>
+        <button class="btn light" id="removeCustomerBtn" style="font-size:11px;padding:6px 12px;color:var(--orange);">Remove this customer</button>
+      </div>
     </div>
 
     <div class="grid2">
       <div>
-        <div class="section-title">Score breakdown</div>
+        <div class="section-title">Score breakdown ${g.monthCount!==12 ? `<span style="font-weight:400;color:#8593a1;text-transform:none;font-size:11px;">(thresholds prorated for ${g.monthCount} of 12 months)</span>` : ''}</div>
         <div class="criteria-row head">
           <div>Criterion</div><div>Actual / Max</div><div>Tier (ref.)</div><div>Achieved</div><div>Contribution</div>
         </div>
@@ -1430,13 +1916,31 @@ function renderDetail(code){
     </table>
   `;
 
-  document.getElementById('relInput').addEventListener('input', e=>{
+  document.getElementById('relInput').addEventListener('change', async e=>{
     ms.rel = Math.min(10, Math.max(1, parseFloat(e.target.value)||1));
     updateAfterManualChange(code);
+    await saveManualScoresToServer();
   });
-  document.getElementById('opInput').addEventListener('input', e=>{
+  document.getElementById('opInput').addEventListener('change', async e=>{
     ms.op = Math.min(10, Math.max(1, parseFloat(e.target.value)||1));
     updateAfterManualChange(code);
+    await saveManualScoresToServer();
+  });
+  const commitOnEnter = e => { if(e.key === 'Enter') e.target.blur(); };
+  document.getElementById('relInput').addEventListener('keydown', commitOnEnter);
+  document.getElementById('opInput').addEventListener('keydown', commitOnEnter);
+  document.getElementById('removeCustomerBtn').addEventListener('click', async ()=>{
+    if(!confirm(`Are you sure you want to remove "${c.name}" (${c.code})? This removes them from the current view and — since they'll be excluded going forward — they won't reappear even if this same customer's data is re-uploaded later.`)) return;
+    await addExcludedCode(c.code);
+    clients = clients.filter(x => x.code !== c.code);
+    activeCode = null;
+    renderTable();
+    renderMatrix();
+    document.getElementById('detailPanel').innerHTML = `
+      <div class="detail-empty">
+        <div class="icon">◎</div>
+        Select a client from the list to see their full breakdown and personalized FX pricing.
+      </div>`;
   });
 
   renderRadar(g);
@@ -1502,8 +2006,8 @@ function exportCurrentData(){
 }
 
 function exportBlankTemplate(){
-  const headers = ['Customer code','Customer name','FX Turnover, in the AMD','Deposits','Loans and credit facilities\nin the AMD','Average balance\nin the AMD','International transfers\nin the AMD','Net Interest Income\n(inc. FTP)  in the AMD\n','Non-interest income'];
-  const sample = ['00111111','X1',6249934.67,23127030,200000,127702.62,170714.22,20824.26,245.4];
+  const headers = ['Customer code','Customer name','FX Turnover, in the AMD','Deposits','Loans and credit facilities\nin the AMD','Average balance\nin the AMD','International transfers\nin the AMD','Non-interest income'];
+  const sample = ['00111111','X1',6249934.67,23127030,200000,127702.62,170714.22,245.4];
   const ws = XLSX.utils.aoa_to_sheet([headers, sample]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Sheet4');
@@ -1535,19 +2039,95 @@ async function initFromSharedData(){
   try{
     const snaps = await loadSnapshots();
     const months = Object.keys(snaps).sort();
-    if(months.length === 0) return;
-    const latestMonth = months[months.length-1];
+    // Skip empty snapshots (e.g. a period saved before a bug fix, or one
+    // where the source file had no matching data) when picking "latest" —
+    // an empty period sorting after a real one shouldn't leave the tool blank.
+    const nonEmptyMonths = months.filter(m => snaps[m] && snaps[m].length > 0);
+    if(nonEmptyMonths.length === 0) return;
+    const latestMonth = nonEmptyMonths[nonEmptyMonths.length-1];
     clients = snaps[latestMonth];
     clients.forEach(c=>{
       if(!manualScores[c.code]) manualScores[c.code] = { rel:10, op:10 };
     });
     currentLoadedPeriod = latestMonth;
+    currentMonthSpan = 1;
     document.getElementById('periodInput').value = latestMonth;
     document.getElementById('fileStatus').textContent = `Showing shared data for ${latestMonth}`;
   }catch(e){
     console.error('Could not load shared data on open', e);
   }
 }
+
+/* ---------- View a period range (sums saved raw data across several months) ---------- */
+const RANGE_NUMERIC_FIELDS = ['fxTurnover','deposits','loans','avgBalance','intlTransfers','nonInterestInc'];
+
+async function populateRangeSelectors(){
+  const snaps = await loadSnapshots();
+  // Exclude empty periods (e.g. saved before a bug fix, or with no matching
+  // data) from the default range entirely — they'd only ever contribute zeros.
+  const periods = Object.keys(snaps).filter(p => snaps[p] && snaps[p].length > 0).sort();
+  const fromInput = document.getElementById('rangeFromInput');
+  const toInput = document.getElementById('rangeToInput');
+  if(periods.length === 0) return;
+  // Default to the full earliest→latest extent — this now matches what's
+  // actually loaded on page open too (see init(), which applies this same
+  // full range as the initial view), so the picker and the data agree.
+  if(!fromInput.value) fromInput.value = periods[0];
+  if(!toInput.value) toInput.value = periods[periods.length-1];
+}
+
+async function applyDateRangeView(fromPeriod, toPeriod){
+  const snaps = await loadSnapshots();
+  // Exclude empty periods from the aggregation pool entirely.
+  const allPeriods = Object.keys(snaps).filter(p => snaps[p] && snaps[p].length > 0).sort();
+  if(allPeriods.length === 0){
+    document.getElementById('rangeStatusNote').textContent = 'No saved periods yet to aggregate.';
+    return;
+  }
+  const from = fromPeriod || allPeriods[0];
+  const to = toPeriod || allPeriods[allPeriods.length-1];
+  const lo = from <= to ? from : to;
+  const hi = from <= to ? to : from;
+  const periodsInRange = allPeriods.filter(p => p >= lo && p <= hi);
+
+  if(periodsInRange.length === 0){
+    document.getElementById('rangeStatusNote').textContent = `No saved periods found between ${lo} and ${hi}.`;
+    return;
+  }
+
+  const aggregated = new Map(); // code -> summed client record
+  for(const p of periodsInRange){
+    for(const row of snaps[p]){
+      if(!aggregated.has(row.code)){
+        const rec = { code: row.code, name: row.name };
+        RANGE_NUMERIC_FIELDS.forEach(f => rec[f] = 0);
+        aggregated.set(row.code, rec);
+      }
+      const agg = aggregated.get(row.code);
+      if(!agg.name && row.name) agg.name = row.name;
+      RANGE_NUMERIC_FIELDS.forEach(f => { agg[f] += (row[f] || 0); });
+    }
+  }
+
+  clients = Array.from(aggregated.values());
+  clients.forEach(c=>{ if(!manualScores[c.code]) manualScores[c.code] = { rel:10, op:10 }; });
+  currentLoadedPeriod = periodsInRange.length === 1 ? periodsInRange[0] : null; // a range isn't one single saveable period
+  currentMonthSpan = periodsInRange.length;
+  activeCode = null;
+  renderAll();
+
+  const label = periodsInRange.length === 1 ? periodsInRange[0] : `${lo} → ${hi} (${periodsInRange.length} periods summed)`;
+  document.getElementById('rangeStatusNote').textContent = `Showing: ${label} — ${clients.length} clients`;
+  document.getElementById('fileStatus').textContent = `Aggregated view: ${label}`;
+}
+
+function triggerRangeFromInputs(){
+  const from = document.getElementById('rangeFromInput').value;
+  const to = document.getElementById('rangeToInput').value;
+  if(from && to) applyDateRangeView(from, to);
+}
+document.getElementById('rangeFromInput').addEventListener('change', triggerRangeFromInputs);
+document.getElementById('rangeToInput').addEventListener('change', triggerRangeFromInputs);
 
 // Keep everyone's view in sync automatically: if anyone uploads/clears data while
 // this page is open, refresh the currently loaded period and Trends view.
@@ -1583,7 +2163,15 @@ function subscribeToSharedUpdates(){
 }
 
 (async function init(){
-  await initFromSharedData();
+  await loadManualScoresFromServer();
+  await populateRangeSelectors(); // sets rangeFromInput/rangeToInput to earliest→latest
+  const fromVal = document.getElementById('rangeFromInput').value;
+  const toVal = document.getElementById('rangeToInput').value;
+  if(fromVal && toVal){
+    await applyDateRangeView(fromVal, toVal); // load the full range as the initial view
+  } else {
+    await initFromSharedData(); // fallback: nothing saved yet, or only one period exists
+  }
   renderAll();
   subscribeToSharedUpdates();
 })();
